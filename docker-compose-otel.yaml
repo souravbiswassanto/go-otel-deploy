@@ -5,7 +5,7 @@ networks:
     driver: bridge
 
 services:
-
+  # Go App that generates telemetry
   go-app:
     build:
       context: ./go-app
@@ -14,32 +14,77 @@ services:
     ports:
       - "8080:8080"
     environment:
-
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
       - OTEL_SERVICE_NAME=my-go-app
-      - OTEL_LOGS_EXPORTER=otlp
     networks:
       - monitoring
     depends_on:
       - otel-collector
 
-
+  # OpenTelemetry Collector
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.98.0
     container_name: otel-collector
     command: ["--config=/etc/otel-collector-config.yml"]
     volumes:
       - ./otel-collector/otel-collector-config.yml:/etc/otel-collector-config.yml
     ports:
-
-      - "4317:4317"
-      - "4318:4318"
-
-      - "8889:8889"
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8889:8889" # Prometheus exporter
     networks:
       - monitoring
     depends_on:
       - jaeger
       - prometheus
       - loki
+
+  # Jaeger for Traces
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    container_name: jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14250:14250" # OTel Collector endpoint
+    networks:
+      - monitoring
+
+  # Prometheus for Metrics
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  # Loki for Logs
+  loki:
+    image: grafana/loki:2.9.5
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
 
