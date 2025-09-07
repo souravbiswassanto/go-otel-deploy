@@ -5,7 +5,6 @@ networks:
     driver: bridge
 
 services:
-  # Go App that generates telemetry
   go-app:
     build:
       context: ./go-app
@@ -21,7 +20,6 @@ services:
     depends_on:
       - otel-collector
 
-  # OpenTelemetry Collector
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.98.0
     container_name: otel-collector
@@ -39,7 +37,6 @@ services:
       - prometheus
       - loki
 
-  # Jaeger for Traces
   jaeger:
     image: jaegertracing/all-in-one:1.53
     container_name: jaeger
@@ -49,7 +46,6 @@ services:
     networks:
       - monitoring
 
-  # Prometheus for Metrics
   prometheus:
     image: prom/prometheus:v2.48.1
     container_name: prometheus
@@ -60,7 +56,6 @@ services:
     networks:
       - monitoring
 
-  # Loki for Logs
   loki:
     image: grafana/loki:2.9.5
     container_name: loki
@@ -70,7 +65,6 @@ services:
     networks:
       - monitoring
 
-  # Grafana for Visualization
   grafana:
     image: grafana/grafana:10.4.1
     container_name: grafana

@@ -8,23 +8,19 @@ processors:
   batch:
 
 exporters:
-  # For Traces to Jaeger - using the OTLP exporter
   otlp/jaeger:
     endpoint: "jaeger:4317"
     tls:
       insecure: true
 
-  # For Metrics to Prometheus - The collector will expose metrics on its own port 8889
   prometheus:
     endpoint: "0.0.0.0:8889"
 
-  # For Logs to Loki
   loki:
     endpoint: "http://loki:3100/loki/api/v1/push"
     tls:
       insecure: true
 
-  # For debugging the collector itself (optional)
   logging:
     verbosity: detailed
 
