@@ -1,0 +1,45 @@
+version: '3.8'
+
+networks:
+  monitoring:
+    driver: bridge
+
+services:
+
+  go-app:
+    build:
+      context: ./go-app
+      dockerfile: Dockerfile
+    container_name: go-app
+    ports:
+      - "8080:8080"
+    environment:
+
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=my-go-app
+      - OTEL_LOGS_EXPORTER=otlp
+    networks:
+      - monitoring
+    depends_on:
+      - otel-collector
+
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./otel-collector/otel-collector-config.yml:/etc/otel-collector-config.yml
+    ports:
+
+      - "4317:4317"
+      - "4318:4318"
+
+      - "8889:8889"
+    networks:
+      - monitoring
+    depends_on:
+      - jaeger
+      - prometheus
+      - loki
+

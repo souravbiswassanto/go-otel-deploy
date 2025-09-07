@@ -35,7 +35,6 @@ var (
 	httpRequestsCounter metric.Int64Counter
 )
 
-// initOtel sets up the OpenTelemetry pipeline.
 func initOtel(ctx context.Context) (func(context.Context) error, error) {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
@@ -45,22 +44,22 @@ func initOtel(ctx context.Context) (func(context.Context) error, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
-	// Set up a connection to the OTLP server.
+
 	conn, err := grpc.NewClient(otlpEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
 	}
-	// Set up a trace exporter
+
 	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
-	// Set up a meter exporter
+
 	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metric exporter: %w", err)
 	}
-	// Set up a log exporter
+
 	logExporter, err := otlploggrpc.New(ctx, otlploggrpc.WithGRPCConn(conn))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log exporter: %w", err)
@@ -83,7 +82,7 @@ func initOtel(ctx context.Context) (func(context.Context) error, error) {
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 	)
 	global.SetLoggerProvider(loggerProvider)
-	// Create the tracer and meter
+
 	tracer = otel.Tracer("my-go-app/main")
 	meter = otel.Meter("my-go-app/main")
 	httpRequestsCounter, err = meter.Int64Counter(
@@ -95,7 +94,7 @@ func initOtel(ctx context.Context) (func(context.Context) error, error) {
 		return nil, fmt.Errorf("failed to create http requests counter: %w", err)
 	}
 	return func(shutdownCtx context.Context) error {
-		// Shutdown gracefully.
+
 		cErr := conn.Close()
 		tpErr := tracerProvider.Shutdown(shutdownCtx)
 		mpErr := meterProvider.Shutdown(shutdownCtx)
@@ -127,20 +126,20 @@ func main() {
 			log.Fatal("failed to shutdown OpenTelemetry: ", err)
 		}
 	}()
-	// The otelhttp handler wraps our main handler, automatically creating spans
+
 	handler := otelhttp.NewHandler(http.HandlerFunc(helloHandler), "hello")
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: handler,
 	}
-	// Start server
+
 	go func() {
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("HTTP server ListenAndServe: %v", err)
 		}
 	}()
 	<-ctx.Done()
-	// Shutdown server
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
@@ -148,26 +147,26 @@ func main() {
 	}
 }
 func helloHandler(w http.ResponseWriter, r *http.Request) {
-	// Get the context from the request, which includes the parent span
+
 	ctx := r.Context()
-	// Create a child span
+
 	_, span := tracer.Start(ctx, "helloHandler.work")
 	defer span.End()
-	// Increment our request counter
+
 	httpRequestsCounter.Add(ctx, 1)
-	// Create a log record using the new API
+
 	logger := global.Logger("my-go-app/helloHandler")
 	record := otellog.Record{}
 	record.SetSeverity(otellog.SeverityInfo)
 	record.SetBody(otellog.StringValue("Received a request for /hello"))
-	// Add attributes to the record
+
 	record.AddAttributes(
 		otellog.String("http.method", r.Method),
 		otellog.String("http.route", "/hello"),
 		otellog.Int("request.id", 12345),
 	)
 	logger.Emit(ctx, record)
-	// Simulate some work
+
 	time.Sleep(100 * time.Millisecond)
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, "Hello, OpenTelemetry!")
