@@ -106,5 +106,8 @@ To stop and remove all the running containers, press Ctrl+C in the terminal wher
 
 docker compose -f docker-compose-otel.yaml down
 
+![img_2.png](img_2.png)
+
+![img_1.png](img_1.png)
 
 ![img.png](img.png)
